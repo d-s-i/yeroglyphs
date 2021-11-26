@@ -39,13 +39,13 @@ import { ERC721 } from "./ERC721.sol";
 
 contract Yeroglyphs is ERC721 {
 
-    uint public constant TOKEN_LIMIT = 512; // 8 for testing, 256 or 512 for prod;
-    uint public constant ARTIST_PRINTS = 128; // 2 for testing, 64 for prod;
+    uint public constant TOKEN_LIMIT = 8; // 8 for testing, 256 or 512 for prod;
+    uint public constant ARTIST_PRINTS = 2; // 2 for testing, 10 for prod;
 
-    uint public constant PRICE = 200 finney;
+    uint public constant PRICE = 80 finney;
 
     // The beneficiary is 350.org
-    address public constant BENEFICIARY = 0x50990F09d4f0cb864b8e046e7edC749dE410916b;
+    address public constant BENEFICIARY = 0x4428161DBD37D935C64894525f91039E1a6E4a1e;
 
     mapping (uint => address) private idToCreator;
     mapping (uint => uint8) private idToSymbolScheme;
@@ -220,13 +220,11 @@ contract Yeroglyphs is ERC721 {
      */
     function _mint(address _to, uint seed) internal returns (string) {
         require(_to != address(0));
-        require(numTokens < TOKEN_LIMIT);
-        uint amount = 0;
+        require(numTokens < TOKEN_LIMIT, "All token Minted");
         if (numTokens >= ARTIST_PRINTS) {
-            amount = PRICE;
-            require(msg.value >= amount);
+            require(msg.value >= PRICE, "Payement too low");
         }
-        require(seedToId[seed] == 0);
+        require(seedToId[seed] == 0, "Token already minted");
         uint id = numTokens + 1;
 
         idToCreator[id] = _to;
@@ -242,11 +240,8 @@ contract Yeroglyphs is ERC721 {
         numTokens = numTokens + 1;
         _addNFToken(_to, id);
 
-        if (msg.value > amount) {
-            msg.sender.transfer(msg.value - amount);
-        }
-        if (amount > 0) {
-            BENEFICIARY.transfer(amount);
+        if (msg.value > 0) {
+            payable(BENEFICIARY).transfer(msg.value);
         }
 
         emit Transfer(address(0), _to, id);

@@ -5,7 +5,7 @@ import "./interfaces/ERC721TokenReceiver.sol";
 
 contract ERC721 {
     
-    event Generated(uint indexed index, address indexed a, uint256 value);
+    event Generated(uint indexed index, address indexed a, string value);
 
     /// @dev This emits when ownership of any NFT changes by any mechanism.
     ///  This event emits when NFTs are created (`from` == 0) and destroyed
@@ -59,7 +59,7 @@ contract ERC721 {
      */
     uint internal numTokens = 0;
 
-    string internal nftName = "Yero";
+    string internal nftName = "Yeroglyphs";
     string internal nftSymbol = "ᵹ";
 
     /**

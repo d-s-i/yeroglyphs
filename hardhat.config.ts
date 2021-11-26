@@ -37,6 +37,13 @@ const config: HardhatUserConfig = {
       accounts: {
         mnemonic: process.env.MNEMONIC
       }
+    },
+    rinkBoba: {
+      url: process.env.RINKEBY_BOBA_URL,
+      accounts: {
+        mnemonic: process.env.MNEMONIC
+      },
+      timeout: 200000
     }
   },
   gasReporter: {

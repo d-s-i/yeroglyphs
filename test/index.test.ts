@@ -24,7 +24,7 @@ describe("Autoglyph", function () {
 
     [deployer, minter, attacker] = await ethers.getSigners();
 
-    const Autoglypgs = await ethers.getContractFactory("Autoglyphs");
+    const Autoglypgs = await ethers.getContractFactory("Yeroglyphs");
     autoglyphs = await Autoglypgs.deploy();
     await autoglyphs.deployed();
 
@@ -79,7 +79,7 @@ describe("Autoglyph", function () {
   });
 
   it("Forbid someone else to save tokenURIs if he doesn't own the NFT", async function() {
-    autoglyphs = autoglyphs.connect(attacker)
+    autoglyphs = autoglyphs.connect(attacker);
     try {
       await autoglyphs.saveTokenURI(1);
       assert.ok(false);
@@ -95,6 +95,24 @@ describe("Autoglyph", function () {
     } catch (error) {
       assert.ok(true);
     }
+  });
+
+  it("Mint All NFTs", async function() {
+    const maxSupply = await autoglyphs.TOKEN_LIMIT();
+
+    for(let i = 2; i <= +maxSupply; i++) {
+      try {
+        await autoglyphs.createGlyph(i, { value: ethers.utils.parseEther("0.08") });
+      } catch(error) {
+        console.log(error);
+        console.log(`Tx ${i - 1} failed.`);
+      }
+    }
+
+    const totalSupply = await autoglyphs.totalSupply();
+
+    assert.equal(+totalSupply, +maxSupply);
+
   });
 
 });
