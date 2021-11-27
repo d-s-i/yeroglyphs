@@ -10,24 +10,18 @@ const func: DeployFunction = async function (hre: HardhatRuntimeEnvironment) {
 
     const [signer] = await hre.ethers.getSigners();
 
-    console.log(`Deploying autoglyphs on chain ${chainId}`);
+    console.log(`Deploying Yero on chain ${chainId}`);
 
-    const deployResult = await deploy("Yeroglyphs", { from: deployer, args: [], log: true });
-    const deployResultBis = await deploy("YeroglyphsBis", { from: deployer, args: [], log: true });
+    const deployResult = await deploy("Yero", { from: deployer, args: [], log: true });
 
-    const Yeroglyphs = await hre.ethers.getContractFactory("Yeroglyphs");
-    const yeroglyphs = await new hre.ethers.Contract(deployResult.address, Yeroglyphs.interface, signer);
+    const Yero = await hre.ethers.getContractFactory("Yero");
+    const yero = await new hre.ethers.Contract(deployResult.address, Yero.interface, signer);
 
-    const YeroglyphsBis = await hre.ethers.getContractFactory("YeroglyphsBis");
-    const yeroglyphsBis = await new hre.ethers.Contract(deployResult.address, YeroglyphsBis.interface, signer);
+    console.log(`Congrats! Your Yero just deployed. You can interact with it at ${deployResult.address}`);
 
-    console.log(`Congrats! Your Yeroglyphs just deployed. You can interact with it at ${deployResult.address}`);
-    console.log(`Congrats! Your YeroglyphsBis just deployed. You can interact with it at ${deployResultBis.address}`);
+    const mint_tx = await yero.createGlyph(0);
 
-    const mint_tx = await yeroglyphs.createGlyph(0);
-    const mint_tx_bis = await yeroglyphsBis.createGlyph(0);
-
-    // await mint_tx.wait(3);
+    await mint_tx.wait(3);
     // await mint_tx_bis.wait(3);
 
     // if(+chainId === 4) {
@@ -41,7 +35,7 @@ const func: DeployFunction = async function (hre: HardhatRuntimeEnvironment) {
     //   }
     // }
 
-    // console.log(`GG you also minted an NFT, here are the token URI: ${await yeroglyphs.tokenURI(1)}`);
+    console.log(`GG you also minted an NFT, here are the token URI: ${await yero.tokenURI(1)}`);
     
 };
 export default func;

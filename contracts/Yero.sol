@@ -1,23 +1,27 @@
-/**
- *Submitted for verification at Etherscan.io on 2019-04-05
-*/
-
 pragma solidity ^0.4.24;
 
 /**
  *
- *      ***    **     ** ********  *******   ******   **     **    ** ********  **     **  ******
- *     ** **   **     **    **    **     ** **    **  **      **  **  **     ** **     ** **    **
- *    **   **  **     **    **    **     ** **        **       ****   **     ** **     ** **
- *   **     ** **     **    **    **     ** **   **** **        **    ********  *********  ******
- *   ********* **     **    **    **     ** **    **  **        **    **        **     **       **
- *   **     ** **     **    **    **     ** **    **  **        **    **        **     ** **    **
- *   **     **  *******     **     *******   ******   ********  **    **        **     **  ******
+ *  ;.  ;.                           
+ *  ; | ; |          ||          .-.  
+ *  `.| `.| ....     ||  .---.  _|_ \ 
+ *  |   | `=.`''===.' '.___.' (_)  
+ *
+ * The following algorithm is amazing, and I would like to thank Matt Hall and John Watkinson for their astounding work
+ * The algorithm have been made for Autoglyphs and have been changed by dsi for Yero
+ *
+ * MODIFICATIONS
+ * Split the contract into multiple part like MainContract, ERC721 and ERC721Receiver.
+ * Add a dynamic variable `block.number` inside the `draw` function to make it more dynamic
+ * Split the `draw` function into two functions with `getSymbol` and add a struct to avoid Error: Stack Too Deep.
+ * Doesn't execute the `draw` function on minting and instead save the seed and the block.number to execute it on a view function (`tokenURI`)
+ * Add `saveTokenURI` to save block.number into an array linked to the tokenId
+ * Add `setTokenIdDefaultIndex` to change the default returned URI from the `tokenURI` function
+ * Add `viewCurrentTokenURI` to view the tokenURI at the current block
+ * Add `viewSpecificTokenURI` to view already saved tokenURI
  *
  *
- *                                                                by Matt Hall and John Watkinson
- *
- *
+ * FUNCTIONNING
  * The output of the 'tokenURI' function is a set of instructions to make a drawing.
  * Each symbol in the output corresponds to a cell, and there are 64x64 cells arranged in a square grid.
  * The drawing can be any size, and the pen's stroke width should be between 1/5th to 1/10th the size of a cell.
@@ -37,10 +41,9 @@ pragma solidity ^0.4.24;
 
 import { ERC721 } from "./ERC721.sol";
 
-contract Yero is ERC721Bis {
+contract Yero is ERC721 {
 
     uint public constant TOKEN_LIMIT = 8; // 8 for testing, 256 or 512 for prod;
-    uint public constant ARTIST_PRINTS = 2; // 2 for testing, 10 for prod;
 
     uint public constant PRICE = 80 finney;
 
@@ -232,9 +235,7 @@ contract Yero is ERC721Bis {
     function _mint(address _to, uint seed) internal returns (uint256) {
         require(_to != address(0));
         require(numTokens < TOKEN_LIMIT, "All token Minted");
-        if (numTokens >= ARTIST_PRINTS) {
-            require(msg.value >= PRICE, "Payement too low");
-        }
+        require(msg.value >= PRICE, "Payement too low");
         require(seedToId[seed] == 0, "Token already minted");
         uint id = numTokens + 1;
 
@@ -250,9 +251,7 @@ contract Yero is ERC721Bis {
         numTokens = numTokens + 1;
         _addNFToken(_to, id);
 
-        if (msg.value > 0) {
-            BENEFICIARY.transfer(msg.value);
-        }
+        payable(BENEFICIARY).transfer(msg.value);
 
         emit Transfer(address(0), _to, id);
         return block.number;
@@ -271,9 +270,8 @@ contract Yero is ERC721Bis {
     }
 
     /**
-     * @dev Save the token URI inside an array.
+     * @dev Save the block.number inside an array.
      * @param _tokenId Id for which we want uri.
-     * @return URI of _tokenId.
      */
     function saveTokenURI(uint256 _tokenId) external validNFToken(_tokenId) {
         require(idToCreator[_tokenId] == msg.sender, "Only owner can call");
@@ -283,7 +281,7 @@ contract Yero is ERC721Bis {
     /**
      * @dev Set the default index for the tokenURI.
      * @param _tokenId Id for which we want uri.
-     * @param _defaultIndex Index of tokenURI to set as default.
+     * @param _defaultIndex Index of block.number used to build the tokenURI to set as default.
      */
     function setTokenIdDefaultIndex(uint256 _tokenId, uint256 _defaultIndex) external validNFToken(_tokenId) {
         require(idToCreator[_tokenId] == msg.sender, "Only owner can call");
@@ -292,7 +290,7 @@ contract Yero is ERC721Bis {
     }
 
     /**
-     * @dev View the current tokenURI for a given tokenId.
+     * @dev View the current tokenURI for a given tokenId at the current block.
      * @param _tokenId Id for which we want the current uri.
      * @return URI of _tokenId.
      */
@@ -309,8 +307,7 @@ contract Yero is ERC721Bis {
      */
     function viewSpecificTokenURI(uint256 _tokenId, uint256 _index) external view returns (string memory) {
         uint256 _seed = idToSeed[_tokenId];
-        return draw(_tokenId, _seed, blockNumberSaved[_tokenId][_index]);
-        // return tokenURIs[_tokenId][_index];
+        return(draw(_tokenId, _seed, blockNumberSaved[_tokenId][_index]));
     }
 
 }
