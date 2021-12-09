@@ -24,7 +24,13 @@ dotenv.config();
 // Go to https://hardhat.org/config/ to learn more
 
 const config: HardhatUserConfig = {
-  solidity: "0.4.24",
+  solidity: {
+    compilers: [{
+      version: "0.4.24",
+    }, {
+      version: "0.8.0"
+    }]
+  },
   networks: {
     ropsten: {
       url: process.env.ROPSTEN_URL || "",
@@ -58,6 +64,9 @@ const config: HardhatUserConfig = {
       default: 0
     }
   },
+  mocha: {
+    timeout: 2000000
+  }
 };
 
 export default config;

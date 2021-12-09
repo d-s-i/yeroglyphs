@@ -1,4 +1,5 @@
 pragma solidity ^0.4.24;
+pragma experimental ABIEncoderV2;
 
 /**
  *
@@ -43,12 +44,22 @@ import { ERC721 } from "./ERC721.sol";
 
 contract Yero is ERC721 {
 
-    uint public constant TOKEN_LIMIT = 8; // 8 for testing, 256 or 512 for prod;
+    bool public isMintingAllowed;
 
-    uint public constant PRICE = 80 finney;
+    uint public constant TOKEN_LIMIT = 512; // 8 for testing, 256 or 512 for prod;
+    uint public constant CYBERDAO_LIMIT = 15;
+
+    uint public constant FIRST_PRICE = 60606000000000000 wei; // 0.060606 ether
+    uint public constant SECOND_PRICE = 90909000000000000 wei; // 0.090909 ether
+    uint public constant THIRD_PRICE = 101010100000000000 wei; // 0.1010101 ether
+    uint public constant FOURTH_PRICE = 121212100000000000 wei; // 0.1212121 ether
+    uint public constant FIFTH_PRICE = 131313130000000000 wei; // 0.1313131 ether
 
     // The beneficiary is 350.org
-    address public constant BENEFICIARY = 0x945A8480d61D85ED755013169dC165574d751D1a;
+    address public constant BENEFICIARY = 0x0800b5479E4E47E7caeD7c5e9B74Ec44d3F0606a;
+    address public constant CYBERDAO = 0x945A8480d61D85ED755013169dC165574d751D1a;
+
+    string internal constant TABLE_ENCODE = "ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyz0123456789+/";
 
     mapping (uint => address) private idToCreator;
     mapping (uint => uint8) private idToSymbolScheme;
@@ -58,9 +69,34 @@ contract Yero is ERC721 {
      */
     mapping (uint256 => uint256) internal idToSeed;
     mapping (uint256 => uint256) internal seedToId;
+    mapping (uint256 => bool) internal isGenesis;
 
     mapping (uint256 => uint256) public tokenIdDefaultIndex;
     mapping (uint256 => uint256[]) public blockNumberSaved;
+
+    mapping (string => bool) private passwords;
+
+    function getPasswords(string _password) public view returns(bool) {
+        return passwords[_password];
+    }
+    mapping (string => bool) internal isPassFound;
+
+    address public owner;
+
+    constructor() public {
+        owner = msg.sender;
+        isMintingAllowed = false;
+    }
+
+    modifier onlyOwner() {
+        require(msg.sender == owner, "Sender is not the Owner");
+        _;
+    }
+
+    modifier mintingAllowed() {
+        require(isMintingAllowed, "Minting not allowed");
+        _;
+    }
 
     ///////////////////
     //// GENERATOR ////
@@ -122,12 +158,12 @@ contract Yero is ERC721 {
 
     // The following code generates art.
 
-        struct DrawingValues {
+    struct DrawingValues {
 
-            uint value;
-            uint mod;
-            bytes5 symbols;
-        }
+        uint value;
+        uint mod;
+        bytes5 symbols;
+    }
 
     function draw(uint _id, uint _seed, uint _blockNumber) internal view returns (string) {
         uint a = uint(uint160(keccak256(abi.encodePacked(_seed, _blockNumber))));
@@ -221,9 +257,29 @@ contract Yero is ERC721 {
         return idToSymbolScheme[_id];
     }
 
-    function createGlyph(uint seed) external payable returns (uint256) {
-        return _mint(msg.sender, seed);
+    function createGlyph(uint seed, string _password) external payable mintingAllowed returns (uint256) {
+        require(numTokens < TOKEN_LIMIT, "All token Minted");
+        if(numTokens < 15) {
+            require(msg.sender == CYBERDAO, "Only cyberDAO can mint");
+        } else if(numTokens < 30) {
+            require(msg.value >= FIRST_PRICE, "Payement too low");
+        } else if(numTokens < 80) {
+            require(msg.value >= SECOND_PRICE, "Payement too low");
+        } else if(numTokens < 432) {
+            require(msg.value >= THIRD_PRICE, "Payement too low");
+        } else if(numTokens < 482) {
+            require(msg.value >= FOURTH_PRICE, "Payement too low");
+        } else if(numTokens <= 512) {
+            require(msg.value >= FIFTH_PRICE, "Payement too low");
+        }
+        return _mint(msg.sender, seed, _password);
     }
+
+    // function createGlyphForCyber(uint seed, string _password) external payable mintingAllowed returns (uint256) {
+    //     require(numTokens < TOKEN_LIMIT, "All token Minted");
+    //     require(msg.sender == CYBERDAO, "Only cyberDAO can mint");
+    //     return _mint(msg.sender, seed, _password);
+    // }
 
     /**
      * @dev Mints a new NFT.
@@ -232,16 +288,17 @@ contract Yero is ERC721 {
      * implementation.
      * @param _to The address that will own the minted NFT.
      */
-    function _mint(address _to, uint seed) internal returns (uint256) {
+    function _mint(address _to, uint seed, string memory _password) internal returns (uint256) {
         require(_to != address(0));
-        require(numTokens < TOKEN_LIMIT, "All token Minted");
-        require(msg.value >= PRICE, "Payement too low");
         require(seedToId[seed] == 0, "Token already minted");
         uint id = numTokens + 1;
 
         idToCreator[id] = _to;
         idToSeed[id] = seed;
         seedToId[seed] = id;
+        if(verifyPassword(_password)) {
+            isGenesis[id] = true;
+        }
         uint a = uint(uint160(keccak256(abi.encodePacked(seed))));
         idToSymbolScheme[id] = getScheme(a);
         blockNumberSaved[id].push(block.number);
@@ -251,7 +308,7 @@ contract Yero is ERC721 {
         numTokens = numTokens + 1;
         _addNFToken(_to, id);
 
-        payable(BENEFICIARY).transfer(msg.value);
+        BENEFICIARY.transfer(msg.value);
 
         emit Transfer(address(0), _to, id);
         return block.number;
@@ -266,7 +323,20 @@ contract Yero is ERC721 {
         uint256 _defaultIndex = tokenIdDefaultIndex[_tokenId]; 
         uint256 _defaultBlockNumber = blockNumberSaved[_tokenId][_defaultIndex];
         uint256 _seed = idToSeed[_tokenId];
-        return draw(_tokenId, _seed, _defaultBlockNumber);
+        string memory imageURI = draw(_tokenId, _seed, _defaultBlockNumber);
+        string memory genesis = isGenesis[_tokenId] ? "true" : "false";
+        string memory json = encode(bytes(abi.encodePacked(
+            '{"name": "Yero", ', 
+            '"description": "Dynamic Generative Art",', 
+            '"attributes": [{',
+            '"isGenesis": "',
+            genesis,
+            '"}], "image": "',
+            imageURI,
+            '"}'
+        )));
+        string memory data = string(abi.encodePacked("data:application/json;base64,", json));
+        return data;
     }
 
     /**
@@ -308,6 +378,81 @@ contract Yero is ERC721 {
     function viewSpecificTokenURI(uint256 _tokenId, uint256 _index) external view returns (string memory) {
         uint256 _seed = idToSeed[_tokenId];
         return(draw(_tokenId, _seed, blockNumberSaved[_tokenId][_index]));
+    }
+
+    function totalBlockNumberSaved(uint256 _tokenId) external view returns(uint256) {
+        return(blockNumberSaved[_tokenId].length);
+    }
+
+    function setPasswords(string[] memory _passwords) public onlyOwner {
+        for(uint i = 0; i < _passwords.length; i++) {
+            passwords[_passwords[i]] = true;
+        }
+    }
+
+    function verifyPassword(string memory _password) public returns(bool) {
+        if(passwords[_password] && !isPassFound[_password]) {
+            isPassFound[_password] = true;
+            return true;
+        }
+        return false;
+    }
+
+    function encode(bytes memory data) internal pure returns (string memory) {
+        if (data.length == 0) return "";
+
+        // load the table into memory
+        string memory table = TABLE_ENCODE;
+
+        // multiply by 4/3 rounded up
+        uint256 encodedLen = 4 * ((data.length + 2) / 3);
+
+        // add some extra buffer at the end required for the writing
+        string memory result = new string(encodedLen + 32);
+
+        assembly {
+            // set the actual output length
+            mstore(result, encodedLen)
+
+            // prepare the lookup table
+            let tablePtr := add(table, 1)
+
+            // input ptr
+            let dataPtr := data
+            let endPtr := add(dataPtr, mload(data))
+
+            // result ptr, jump over length
+            let resultPtr := add(result, 32)
+
+            // run over the input, 3 bytes at a time
+            for {} lt(dataPtr, endPtr) {}
+            {
+                // read 3 bytes
+                dataPtr := add(dataPtr, 3)
+                let input := mload(dataPtr)
+
+                // write 4 characters
+                mstore8(resultPtr, mload(add(tablePtr, and(shr(18, input), 0x3F))))
+                resultPtr := add(resultPtr, 1)
+                mstore8(resultPtr, mload(add(tablePtr, and(shr(12, input), 0x3F))))
+                resultPtr := add(resultPtr, 1)
+                mstore8(resultPtr, mload(add(tablePtr, and(shr( 6, input), 0x3F))))
+                resultPtr := add(resultPtr, 1)
+                mstore8(resultPtr, mload(add(tablePtr, and(        input,  0x3F))))
+                resultPtr := add(resultPtr, 1)
+            }
+
+            // padding with '='
+            switch mod(mload(data), 3)
+            case 1 { mstore(sub(resultPtr, 2), shl(240, 0x3d3d)) }
+            case 2 { mstore(sub(resultPtr, 1), shl(248, 0x3d)) }
+        }
+
+        return result;
+    }
+
+    function setIsMintingAllowed(bool _isMintingAllowed) public onlyOwner {
+        isMintingAllowed = _isMintingAllowed;
     }
 
 }

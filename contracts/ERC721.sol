@@ -101,7 +101,7 @@ contract ERC721 {
      * @param _tokenId ID of the NFT to validate.
      */
     modifier validNFToken(uint256 _tokenId) {
-        require(idToOwner[_tokenId] != address(0));
+        require(idToOwner[_tokenId] != address(0), "Query for non-existant token");
         _;
     }
 
